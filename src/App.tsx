@@ -3,16 +3,67 @@ import { SearchInput } from './components/SearchInput';
 import { Button } from './components/Button';
 import { RepositoryCard } from './components/RepositoryCard';
 import { UserSection } from './components/UserSection';
+import { searchUsers, getUserRepos } from './services/github';
+import { GitHubUser, GitHubRepo } from './types/github';
+import { Loader2 } from 'lucide-react';
 
 function App() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedUser, setExpandedUser] = useState('Exampleuser1');
+  const [searchedTerm, setSearchedTerm] = useState('');
+  const [users, setUsers] = useState<GitHubUser[]>([]);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [userRepos, setUserRepos] = useState<Record<string, GitHubRepo[]>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingRepo, setIsLoadingRepo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
-  const mockRepositories = [
-    { title: 'Repository title', description: 'Repository description', stars: 12 },
-    { title: 'Repository title', description: 'Repository description', stars: 48 },
-    { title: 'Repository title', description: 'Repository description', stars: 23 },
-  ];
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) return;
+
+    setSearchedTerm(searchTerm);
+    setUsers([]);
+    setHasSearched(true);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const foundUsers = await searchUsers(searchTerm);
+      setUsers(foundUsers);
+      setExpandedUser(null);
+      setUserRepos({});
+    } catch (err) {
+      console.error('Search error:', err);
+      setError('Failed to search users. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUserToggle = async (username: string) => {
+    if (expandedUser === username) {
+      setExpandedUser(null);
+      return;
+    }
+
+    setExpandedUser(username);
+    if (!userRepos[username]) {
+      setIsLoadingRepo(true)
+      try {
+        const repos = await getUserRepos(username);
+        setUserRepos(prev => ({ ...prev, [username]: repos }));
+      } catch (err) {
+        console.error('Repository fetch error:', err);
+        setError(`Failed to load repositories for ${username}`);
+      }
+      setIsLoadingRepo(false)
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -20,46 +71,53 @@ function App() {
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
-          placeholder="Exampleuser"
+          placeholder="Search GitHub users..."
+          onKeyPress={handleKeyPress}
         />
         <div className="mt-4">
-          <Button>Search</Button>
+          <Button
+            onClick={handleSearch}
+            className="w-24"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="w-5 h-5 mx-auto animate-spin" /> : 'Search'}
+          </Button>
         </div>
 
-        <div className='mt-2 text-gray-500'>
-          Showing users for "asfsf"
-        </div>
+        {error && (
+          <div className="mt-4 p-2 bg-red-100 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        { hasSearched && !isLoading ?
+          <div className='mt-2 text-gray-500'>
+            Showing users for "{searchedTerm}"
+          </div> : ''
+        }
         
         <div className="mt-2">
-          <UserSection
-            username="Exampleuser1"
-            isExpanded={expandedUser === 'Exampleuser1'}
-            onToggle={() => setExpandedUser(expandedUser === 'Exampleuser1' ? '' : 'Exampleuser1')}
-          >
-            {mockRepositories.map((repo, index) => (
-              <RepositoryCard
-                key={index}
-                title={repo.title}
-                description={repo.description}
-                stars={repo.stars}
-              />
-            ))}
-          </UserSection>
+          {hasSearched && users.length === 0 && searchedTerm && !isLoading && !error && (
+            <p className="text-center text-gray-600">No users found</p>
+          )}
+          
+          {users.map(user => (
+            <UserSection
+              key={user.id}
+              user={user}
+              isExpanded={expandedUser === user.login}
+              onToggle={() => handleUserToggle(user.login)}
+              isLoading={isLoadingRepo && user.login === expandedUser}
+            >
+              {!isLoadingRepo && userRepos.length && !error && (
+                <p className="text-center text-gray-600">No users found</p>
+              )}
 
-          <UserSection
-            username="Exampleuser431"
-            isExpanded={expandedUser === 'Exampleuser431'}
-            onToggle={() => setExpandedUser(expandedUser === 'Exampleuser431' ? '' : 'Exampleuser431')}
-          >
-            {mockRepositories.map((repo, index) => (
-              <RepositoryCard
-                key={index}
-                title={repo.title}
-                description={repo.description}
-                stars={repo.stars}
-              />
-            ))}
-          </UserSection>
+              {userRepos[user.login]?.map(repo => (
+                <RepositoryCard key={repo.id} repo={repo} />
+              ))}
+            </UserSection>
+          ))}
         </div>
       </div>
     </div>
