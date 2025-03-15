@@ -109,8 +109,8 @@ function App() {
               onToggle={() => handleUserToggle(user.login)}
               isLoading={isLoadingRepo && user.login === expandedUser}
             >
-              {!isLoadingRepo && userRepos.length && !error && (
-                <p className="text-center text-gray-600">No users found</p>
+              {!isLoadingRepo && userRepos[user.login]?.length === 0 && !error && (
+                <p className="text-center text-gray-600">No repositories found</p>
               )}
 
               {userRepos[user.login]?.map(repo => (
