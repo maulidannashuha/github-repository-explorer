@@ -59,7 +59,7 @@ function App() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -72,7 +72,7 @@ function App() {
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder="Search GitHub users..."
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
         />
         <div className="mt-4">
           <Button
